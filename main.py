@@ -12,9 +12,9 @@ sns.set_style("darkgrid")
 k = 0
 beta = 0
 batch_size = 64
-n_epochs = 5
+n_epochs = 2
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-net = BetaVAE_Linear().to(device)
+net = BetaVAE_conv().to(device)
 optimizer = optim.Adam(net.parameters(), lr=2e-4)
 train_log = {}
 val_log = {}
@@ -22,34 +22,22 @@ best_nll = np.inf
 save_dir = './checkpoints/'
 
 # Loading data
-train_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.MNIST('/files/', train=True, download=True,
-                               transform=torchvision.transforms.Compose([
-                                   torchvision.transforms.ToTensor()])),
-    batch_size=batch_size, shuffle=True)
-
-val_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.MNIST('/files/', train=False, download=True,
-                               transform=torchvision.transforms.Compose([
-                                   torchvision.transforms.ToTensor()])),
-    batch_size=batch_size, shuffle=True)
-
-quick_plot, _ = next(iter(train_loader))
-quick_plot = (quick_plot)
+train_loader, val_loader = dataloaders(batch_size, MNIST=False)
+quick_plot = next(iter(train_loader))
+quick_plot = quick_plot
 img_grid = torchvision.utils.make_grid(quick_plot.cpu(), nrow=8).numpy()
 plt.figure(figsize=(12, 12))
 plt.imshow(np.transpose(img_grid, (1, 2, 0)))
-plt.imshow(img_grid)
 plt.axis('off')
 plt.savefig('./figures/Figure_1.pdf')
 
 # Training loop
 for epoch in range(n_epochs):
     train_batch_loss = []
-    for batch, label in tqdm(train_loader):
+    for batch in tqdm(train_loader):
         net.train()
         batch = batch.to(device)
-        loss, kl, nll = net.calc_loss(batch, 1)
+        loss, kl, nll = net.calc_loss(batch, beta=1)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -59,7 +47,7 @@ for epoch in range(n_epochs):
         k += 1
 
     val_batch_loss = []
-    for batch, label in tqdm(val_loader):
+    for batch in tqdm(val_loader):
         with torch.no_grad():
             net.eval()
             loss, kl, nll = net.calc_loss(batch.to(device), 1)
@@ -72,12 +60,6 @@ for epoch in range(n_epochs):
 
     print('[Epoch %d/%d][Step: %d] Train Loss: %s Test Loss: %s' \
           % (epoch + 1, n_epochs, k, np.mean(train_batch_loss), np.mean(val_batch_loss)))
-
-test = net(quick_plot.to(device)).detach().cpu()
-img_grid = torchvision.utils.make_grid(test.reshape(test.shape[0], 1, 28, 28), nrow=8)
-plt.figure(figsize=(12, 12))
-plt.imshow(np.transpose(img_grid, (1, 2, 0)))
-plt.axis('off')
 
 # Plotting each minibatch step
 x_val = list(val_log.keys())
@@ -105,3 +87,30 @@ plt.xlabel('Num Steps')
 plt.ylabel('NLL in bits per dim')
 # plt.savefig('./Hw3/Figures/Figure_8.pdf', bbox_inches='tight')
 # plt.close()
+
+test = net(quick_plot.to(device)).detach().cpu()
+img_grid = torchvision.utils.make_grid(test.reshape(test.shape[0], 1, 64, 64), nrow=8)
+plt.figure(figsize=(12, 12))
+plt.imshow(np.transpose(img_grid, (1, 2, 0)))
+plt.axis('off')
+
+num_traversal = 10
+with torch.no_grad():
+    images = net.LT_fitted_gauss_2std(quick_plot.to(device), num_var=1, num_traversal=num_traversal)
+original = images[0].reshape(28, 28).cpu()
+fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+img = torch.stack(images[1:6], dim=0).cpu().view(5*num_traversal, 1, 28, 28)
+img_grid = torchvision.utils.make_grid(img, nrow=10)
+ax[0].imshow(original)
+ax[0].axis('off')
+ax[1].imshow(np.transpose(img_grid, (1, 2, 0)))
+ax[1].axis('off')
+# plt.savefig('./Figures/Traversal.pdf', bbox_layout='tight')
+# plt.close()
+
+
+x = quick_plot.to(device)
+mu, lv = net.BottomUp(x)
+num_var = 5
+
+
