@@ -10,11 +10,11 @@ from tqdm import tqdm
 sns.set_style("darkgrid")
 
 k = 0
-beta = 0
+beta = 0.05
 batch_size = 64
-n_epochs = 2
+n_epochs = 30
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-net = BetaVAE_conv().to(device)
+net = BetaVAE_conv(latent=16, filters=[128, 64, 64], MNIST=False).to(device)
 optimizer = optim.Adam(net.parameters(), lr=2e-4)
 train_log = {}
 val_log = {}
@@ -24,6 +24,7 @@ save_dir = './checkpoints/'
 # Loading data
 train_loader, val_loader = dataloaders(batch_size, MNIST=False)
 quick_plot = next(iter(train_loader))
+quick_plot = quick_plot[0] if type(quick_plot) is list else quick_plot
 quick_plot = quick_plot
 img_grid = torchvision.utils.make_grid(quick_plot.cpu(), nrow=8).numpy()
 plt.figure(figsize=(12, 12))
@@ -36,8 +37,9 @@ for epoch in range(n_epochs):
     train_batch_loss = []
     for batch in tqdm(train_loader):
         net.train()
+        batch = batch[0] if type(batch) is list else batch
         batch = batch.to(device)
-        loss, kl, nll = net.calc_loss(batch, beta=1)
+        loss, kl, nll = net.calc_loss(batch, beta=beta)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -45,9 +47,12 @@ for epoch in range(n_epochs):
         train_batch_loss.append(loss.item())
 
         k += 1
+        if beta < 4 and k > 6000:
+            beta += 0.001
 
     val_batch_loss = []
     for batch in tqdm(val_loader):
+        batch = batch[0] if type(batch) is list else batch
         with torch.no_grad():
             net.eval()
             loss, kl, nll = net.calc_loss(batch.to(device), 1)
@@ -74,18 +79,22 @@ loss_train, kl_train, recon_train = values[:, 0], values[:, 1], values[:, 2]
 fig, ax = plt.subplots(1, 3, figsize=(10, 5))
 ax[0].plot(train_x_vals, loss_train, label='Training ELBO')
 ax[0].plot(x_val, loss_val, label='Validation ELBO')
-ax[0].set_title('Training Curve')
+ax[0].set_title('ELBO Training Curve')
+ax[0].legend(loc='best')
+ax[0].set_xlabel('Num Steps')
+
 ax[1].plot(train_x_vals, kl_train, label='Training KL')
 ax[1].plot(x_val, kl_val, label='Validation KL')
 ax[1].set_title('Kullback-Leibler Divergence Curve')
+ax[1].legend(loc='best')
+ax[1].set_xlabel('Num Steps')
+
 ax[2].plot(train_x_vals, recon_train, label='Training Reconstruction Error')
 ax[2].plot(x_val, recon_val, label='Validation Reconstruction Error')
 ax[2].set_title('Reconstruction Error Curve')
-plt.legend(loc='best')
-
-plt.xlabel('Num Steps')
-plt.ylabel('NLL in bits per dim')
-# plt.savefig('./Hw3/Figures/Figure_8.pdf', bbox_inches='tight')
+ax[2].legend(loc='best')
+ax[2].set_xlabel('Num Steps')
+plt.savefig('./figures/Figure_2.pdf', bbox_inches='tight')
 # plt.close()
 
 test = net(quick_plot.to(device)).detach().cpu()
@@ -97,9 +106,9 @@ plt.axis('off')
 num_traversal = 10
 with torch.no_grad():
     images = net.LT_fitted_gauss_2std(quick_plot.to(device), num_var=1, num_traversal=num_traversal)
-original = images[0].reshape(28, 28).cpu()
+original = images[0].reshape(64, 64).cpu()
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-img = torch.stack(images[1:6], dim=0).cpu().view(5*num_traversal, 1, 28, 28)
+img = torch.stack(images[1:6], dim=0).cpu().view(5*num_traversal, 1, 64, 64)
 img_grid = torchvision.utils.make_grid(img, nrow=10)
 ax[0].imshow(original)
 ax[0].axis('off')
@@ -107,10 +116,4 @@ ax[1].imshow(np.transpose(img_grid, (1, 2, 0)))
 ax[1].axis('off')
 # plt.savefig('./Figures/Traversal.pdf', bbox_layout='tight')
 # plt.close()
-
-
-x = quick_plot.to(device)
-mu, lv = net.BottomUp(x)
-num_var = 5
-
 
