@@ -46,7 +46,7 @@ class ResidualEncoderBlock(nn.Module):
         x = self.res(x) + x
         if self.post_conv is not None:
             x = self.post_conv(x)
-        return x
+        return x.contiguous()
 
 
 class ResidualDecoderBlock(nn.Module):
@@ -92,7 +92,7 @@ class ResidualDecoderBlock(nn.Module):
         x = self.res(x) + x
         if self.post_conv is not None:
             x = self.post_conv(x)
-        return x
+        return x.contiguous()
 
 
 class BetaVAE_conv(nn.Module):
@@ -134,12 +134,12 @@ class BetaVAE_conv(nn.Module):
     def BottomUp(self, x):
         out = self.encoder(x)
         mu, lv = self.mu(out), self.lv(out)
-        return mu, lv
+        return mu.contiguous(), lv.contiguous()
 
     def reparameterize(self, mu, lv):
         std = lv.mul(0.5).exp()
         z = td.Normal(mu, std).rsample()
-        return z
+        return z.contiguous()
 
     def TopDown(self, x):
         z = self.conv_prep(x)
@@ -174,9 +174,9 @@ class BetaVAE_conv(nn.Module):
         kl = (-0.5 * torch.sum(1 + lv - mu.pow(2) - lv.exp()) + 1e-5) / x.shape[0]
         # print(kl, nll, out.min(), out.max())
 
-        return -nll + kl * beta, kl, nll
+        return (-nll + kl * beta).contiguous(), kl, nll
 
-    def LT_fitted_gauss_2std(self, x,num_var=5, num_traversal=5):
+    def LT_fitted_gauss_2std(self, x, num_var=5, num_traversal=5):
         # Cycle linearly through +-2 std dev of a fitted Gaussian.
         mu, lv = self.BottomUp(x)
 

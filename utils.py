@@ -86,9 +86,9 @@ def dataloaders(batch_size, MNIST=True):
         root = './data/dsprites-dataset/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz'
         data = np.load(root, encoding='bytes')
         data = torch.from_numpy(data['imgs']).unsqueeze(1).float()
-        # train_set, val_set = data[:int(data.size(0)*0.8)], data[int(data.size(0)*0.8):]
-        rand_perm = torch.randperm(data.size(0))
-        train_set, val_set = data[rand_perm[:50000]], data[rand_perm[50000:60000]]
+        train_set, val_set = data[:int(data.size(0)*0.8)], data[int(data.size(0)*0.8):]
+        # rand_perm = torch.randperm(data.size(0))
+        # train_set, val_set = data[rand_perm[:50000]], data[rand_perm[50000:60000]]
         train_kwargs = {'data_tensor': train_set}
         val_kwargs = {'data_tensor': val_set}
         dset = CustomTensorDataset

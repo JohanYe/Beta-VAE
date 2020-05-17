@@ -11,10 +11,10 @@ sns.set_style("darkgrid")
 
 k = 0
 beta = 0.05
-batch_size = 64
-n_epochs = 30
+batch_size = 128
+n_epochs = 60
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-net = BetaVAE_conv(latent=16, filters=[128, 64, 64], MNIST=False).to(device)
+net = BetaVAE_conv(latent=6, filters=[128, 64, 64, 64], MNIST=False).to(device)
 optimizer = optim.Adam(net.parameters(), lr=2e-4)
 train_log = {}
 val_log = {}
@@ -47,8 +47,8 @@ for epoch in range(n_epochs):
         train_batch_loss.append(loss.item())
 
         k += 1
-        if beta < 4 and k > 6000:
-            beta += 0.001
+        if beta < 3 and k > 50000:
+            beta += 0.0001
 
     val_batch_loss = []
     for batch in tqdm(val_loader):
@@ -97,6 +97,8 @@ ax[2].set_xlabel('Num Steps')
 plt.savefig('./figures/Figure_2.pdf', bbox_inches='tight')
 # plt.close()
 
+
+load_checkpoint('./checkpoints/best.pth.tar', net)
 test = net(quick_plot.to(device)).detach().cpu()
 img_grid = torchvision.utils.make_grid(test.reshape(test.shape[0], 1, 64, 64), nrow=8)
 plt.figure(figsize=(12, 12))
