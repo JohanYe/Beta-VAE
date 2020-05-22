@@ -3,6 +3,10 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torchvision
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
+import imageio
+
 
 class Flatten(torch.nn.Module):
     def forward(self, x):
@@ -17,13 +21,6 @@ def isqrt(n):
         y = (x + n // x) // 2
     return x
 
-def cycle_interval(starting_value, num_frames, min_val, max_val):
-  """Cycles through the state space in a single cycle."""
-  starting_in_01 = ((starting_value - min_val)/(max_val - min_val)).cpu()
-  grid = torch.linspace(starting_in_01.item(), starting_in_01.item() + 2., steps=num_frames+1)[:-1]
-  grid -= np.maximum(0, 2*grid - 2)
-  grid += np.maximum(0, -2*grid)
-  return grid * (max_val - min_val) + min_val
 
 class UnFlatten(nn.Module):
     def __init__(self, c_out):
@@ -48,14 +45,18 @@ def save_checkpoint(state, save_dir, ckpt_name='best.pth.tar'):
     torch.save(state, file_path)
 
 
-def load_checkpoint(checkpoint, model):
+def load_checkpoint(checkpoint, model, cpu=False):
     if not os.path.exists(checkpoint):
         raise Exception("File {} dosen't exists!".format(checkpoint))
-    checkpoint = torch.load(checkpoint)
+    if cpu:
+        checkpoint = torch.load(checkpoint, map_location=torch.device('cpu'))
+    else:
+        checkpoint = torch.load(checkpoint)
     saved_dict = checkpoint['state_dict']
     new_dict = model.state_dict()
     new_dict.update(saved_dict)
     model.load_state_dict(new_dict)
+
 
 class CustomTensorDataset(torch.utils.data.Dataset):
     def __init__(self, data_tensor):
@@ -66,6 +67,7 @@ class CustomTensorDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.data_tensor.size(0)
+
 
 def dataloaders(batch_size, MNIST=True):
     if MNIST:
@@ -86,20 +88,46 @@ def dataloaders(batch_size, MNIST=True):
         root = './data/dsprites-dataset/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz'
         data = np.load(root, encoding='bytes')
         data = torch.from_numpy(data['imgs']).unsqueeze(1).float()
-        train_set, val_set = data[:int(data.size(0)*0.8)], data[int(data.size(0)*0.8):]
-        # rand_perm = torch.randperm(data.size(0))
-        # train_set, val_set = data[rand_perm[:50000]], data[rand_perm[50000:60000]]
+        # train_set, val_set = data[:int(data.size(0)*0.8)], data[int(data.size(0)*0.8):]
+        rand_perm = torch.randperm(data.size(0))
+        train_set, val_set = data[rand_perm[:50000]], data[rand_perm[50000:60000]]
         train_kwargs = {'data_tensor': train_set}
         val_kwargs = {'data_tensor': val_set}
         dset = CustomTensorDataset
         train_data = dset(**train_kwargs)
         train_loader = torch.utils.data.DataLoader(train_data,
-                                  batch_size=batch_size,
-                                  shuffle=True)
-        val_data = dset(**val_kwargs)
-        val_loader = torch.utils.data.DataLoader(val_data,
                                                    batch_size=batch_size,
                                                    shuffle=True)
+        val_data = dset(**val_kwargs)
+        val_loader = torch.utils.data.DataLoader(val_data,
+                                                 batch_size=batch_size,
+                                                 shuffle=True)
 
         return train_loader, val_loader
 
+
+def traversal_plotting(x, out_loc, num_traversals=10, original_index=0, silent=False):
+    """ expects original to be first index """
+    fig = plt.figure(figsize=(8, 6))
+    gs = gridspec.GridSpec(1, 2, width_ratios=[1, 5])
+    ax0 = plt.subplot(gs[0])
+
+    original = x[original_index].reshape(64, 64).cpu()
+    img = torch.stack(x[1:], dim=0).cpu().view(6 * num_traversals, 1, 64, 64)
+    img_grid = torchvision.utils.make_grid(img, nrow=num_traversals)
+    ax0.imshow(original)
+    ax0.axis('off')
+    ax0.set_title('Original')
+    ax1 = plt.subplot(gs[1])
+    ax1.set_title('traversals')
+    ax1.imshow(np.transpose(img_grid, (1, 2, 0)))
+    ax1.axis('off')
+    plt.savefig(out_loc, bbox_layout='tight')
+    if silent:
+        plt.close()
+
+
+def save_animation(images, filename, num_traversal, fps):
+    gif = np.array(images.cpu().detach())
+    gif = (gif*255).reshape(num_traversal, 64, 64).astype(np.uint8)
+    imageio.mimwrite(filename, gif, fps=fps)

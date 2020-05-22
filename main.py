@@ -1,20 +1,22 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import *
+import utils
 from model import *
 import seaborn as sns
 import torch.optim as optim
 import torchvision
 from tqdm import tqdm
+from disentanglement_lib import *
+
 
 sns.set_style("darkgrid")
 
 k = 0
 beta = 0.05
-batch_size = 128
-n_epochs = 60
+batch_size = 64
+n_epochs = 150
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-net = BetaVAE_conv(latent=6, filters=[128, 64, 64, 64], MNIST=False).to(device)
+net = BetaVAE_conv(latent=6, filters=[128, 64, 64], MNIST=False).to(device)
 optimizer = optim.Adam(net.parameters(), lr=2e-4)
 train_log = {}
 val_log = {}
@@ -22,7 +24,7 @@ best_nll = np.inf
 save_dir = './checkpoints/'
 
 # Loading data
-train_loader, val_loader = dataloaders(batch_size, MNIST=False)
+train_loader, val_loader = utils.dataloaders(batch_size, MNIST=False)
 quick_plot = next(iter(train_loader))
 quick_plot = quick_plot[0] if type(quick_plot) is list else quick_plot
 quick_plot = quick_plot
@@ -47,8 +49,8 @@ for epoch in range(n_epochs):
         train_batch_loss.append(loss.item())
 
         k += 1
-        if beta < 3 and k > 50000:
-            beta += 0.0001
+        if beta < 3 and k > 30000:
+            beta += 0.0005
 
     val_batch_loss = []
     for batch in tqdm(val_loader):
@@ -61,7 +63,7 @@ for epoch in range(n_epochs):
 
     if loss.item() < best_nll:
         best_nll = loss.item()
-        save_checkpoint({'epoch': epoch, 'state_dict': net.state_dict()}, save_dir)
+        utils.save_checkpoint({'epoch': epoch, 'state_dict': net.state_dict()}, save_dir)
 
     print('[Epoch %d/%d][Step: %d] Train Loss: %s Test Loss: %s' \
           % (epoch + 1, n_epochs, k, np.mean(train_batch_loss), np.mean(val_batch_loss)))
@@ -98,24 +100,17 @@ plt.savefig('./figures/Figure_2.pdf', bbox_inches='tight')
 # plt.close()
 
 
-load_checkpoint('./checkpoints/best.pth.tar', net)
+quick_plot = next(iter(train_loader))
+quick_plot = quick_plot[0] if type(quick_plot) is list else quick_plot
+quick_plot = quick_plot
+
+utils.load_checkpoint('./checkpoints/best.pth.tar', net)
 test = net(quick_plot.to(device)).detach().cpu()
 img_grid = torchvision.utils.make_grid(test.reshape(test.shape[0], 1, 64, 64), nrow=8)
 plt.figure(figsize=(12, 12))
 plt.imshow(np.transpose(img_grid, (1, 2, 0)))
 plt.axis('off')
 
-num_traversal = 10
-with torch.no_grad():
-    images = net.LT_fitted_gauss_2std(quick_plot.to(device), num_var=1, num_traversal=num_traversal)
-original = images[0].reshape(64, 64).cpu()
-fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-img = torch.stack(images[1:6], dim=0).cpu().view(5*num_traversal, 1, 64, 64)
-img_grid = torchvision.utils.make_grid(img, nrow=10)
-ax[0].imshow(original)
-ax[0].axis('off')
-ax[1].imshow(np.transpose(img_grid, (1, 2, 0)))
-ax[1].axis('off')
-# plt.savefig('./Figures/Traversal.pdf', bbox_layout='tight')
-# plt.close()
+
+
 

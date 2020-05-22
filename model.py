@@ -1,8 +1,11 @@
 import torch
 import torch.nn as nn
-from utils import Flatten, UnFlatten, cycle_interval
+from utils import Flatten, UnFlatten, save_animation, traversal_plotting
+from disentanglement_lib import cycle_interval
 import numpy as np
 import torch.distributions as td
+import os
+import imageio
 
 class ResidualEncoderBlock(nn.Module):
     # Consider addring gated resnet block instead
@@ -176,22 +179,28 @@ class BetaVAE_conv(nn.Module):
 
         return (-nll + kl * beta).contiguous(), kl, nll
 
-    def LT_fitted_gauss_2std(self, x, num_var=5, num_traversal=5):
+    def LT_fitted_gauss_2std(self, x, num_var=6, num_traversal=5, gif_fps=5):
         # Cycle linearly through +-2 std dev of a fitted Gaussian.
         mu, lv = self.BottomUp(x)
 
-        images = []
+
         for i, batch_mu in enumerate(mu[:num_var]):
+            images = []
             images.append(torch.sigmoid(self.TopDown(batch_mu.unsqueeze(0))))
             for latent_var in range(batch_mu.shape[0]):
                 new_mu = batch_mu.unsqueeze(0).repeat([num_traversal, 1])
                 loc = mu[:, latent_var].mean()
-                total_var = lv[:, latent_var].exp().mean() + mu[:, latent_var].mean()
+                total_var = lv[:, latent_var].exp().mean() + mu[:, latent_var].var()
                 scale = total_var.sqrt()
                 new_mu[:, latent_var] = cycle_interval(batch_mu[latent_var], num_traversal,
                                                        loc - 2 * scale, loc + 2 * scale)
-                print(new_mu.shape)
+
                 images.append(torch.sigmoid(self.TopDown(new_mu)))
+                filename = os.path.join(os.getcwd(), "figures/mu_gifs/mu%d_var%d.gif" % (i+1,latent_var+1))
+                save_animation(torch.sigmoid(self.TopDown(new_mu)), filename, num_traversal, fps=gif_fps)  #gif
+
+            img_name = os.path.join(os.getcwd(), "figures/traversals/Traversal%d.pdf" % (i+1))
+            traversal_plotting(images, img_name, num_traversals=num_traversal)  # Traversal image
         return images
 
 
@@ -258,7 +267,7 @@ class BetaVAE_Linear(nn.Module):
 
         return -nll + kl * beta, kl, nll
 
-    def LT_fitted_gauss_2std(self, x,num_var=5, num_traversal=5):
+    def LT_fitted_gauss_2std(self, x,num_var=6, num_traversal=5):
         # Cycle linearly through +-2 std dev of a fitted Gaussian.
         x = x.view(x.shape[0], -1)
         mu, lv = self.BottomUp(x)
@@ -269,7 +278,7 @@ class BetaVAE_Linear(nn.Module):
             for latent_var in range(batch_mu.shape[0]):
                 new_mu = batch_mu.unsqueeze(0).repeat([num_traversal, 1])
                 loc = mu[:, latent_var].mean()
-                total_var = lv[:, latent_var].exp().mean() + mu[:, latent_var].mean()
+                total_var = lv[:, latent_var].exp().mean() + mu[:, latent_var].var()
                 scale = total_var.sqrt()
                 new_mu[:, latent_var] = cycle_interval(batch_mu[latent_var], num_traversal,
                                                        loc - 2 * scale, loc + 2 * scale)
