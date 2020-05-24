@@ -203,6 +203,10 @@ class BetaVAE_conv(nn.Module):
             traversal_plotting(images, img_name, num_traversals=num_traversal)  # Traversal image
         return images
 
+    def get_latent(self, x):
+        mu, _ = self.BottomUp(x)
+        return mu
+
 
 
 

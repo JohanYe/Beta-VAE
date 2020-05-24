@@ -16,12 +16,18 @@ beta = 0.05
 batch_size = 64
 n_epochs = 150
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-net = BetaVAE_conv(latent=6, filters=[128, 64, 64], MNIST=False).to(device)
-optimizer = optim.Adam(net.parameters(), lr=2e-4)
+net = BetaVAE_conv(latent=10, filters=[32, 32, 64, 64], MNIST=False).to(device)
+optimizer = optim.Adam(net.parameters(), lr=5e-4)
 train_log = {}
 val_log = {}
 best_nll = np.inf
 save_dir = './checkpoints/'
+
+# New beta VAE stuff
+C_max = torch.Tensor([20]).to(device)
+C_stop_iter = 1e5
+global_iter = 0
+gamma = 100
 
 # Loading data
 train_loader, val_loader = utils.dataloaders(batch_size, MNIST=False)
@@ -38,10 +44,13 @@ plt.savefig('./figures/Figure_1.pdf')
 for epoch in range(n_epochs):
     train_batch_loss = []
     for batch in tqdm(train_loader):
+        global_iter += 1
         net.train()
         batch = batch[0] if type(batch) is list else batch
         batch = batch.to(device)
         loss, kl, nll = net.calc_loss(batch, beta=beta)
+        C = torch.clamp(C_max/C_stop_iter*global_iter, 0, C_max.item())
+        loss = -nll + gamma*(kl-C).abs()
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -57,7 +66,7 @@ for epoch in range(n_epochs):
         batch = batch[0] if type(batch) is list else batch
         with torch.no_grad():
             net.eval()
-            loss, kl, nll = net.calc_loss(batch.to(device), 1)
+            loss, kl, nll = net.calc_loss(batch.to(device), beta=1)
             val_log[k] = [loss.item(), kl.item(), nll.item()]
             val_batch_loss.append(loss.item())
 
@@ -104,13 +113,14 @@ quick_plot = next(iter(train_loader))
 quick_plot = quick_plot[0] if type(quick_plot) is list else quick_plot
 quick_plot = quick_plot
 
+
 utils.load_checkpoint('./checkpoints/best.pth.tar', net)
 test = net(quick_plot.to(device)).detach().cpu()
 img_grid = torchvision.utils.make_grid(test.reshape(test.shape[0], 1, 64, 64), nrow=8)
 plt.figure(figsize=(12, 12))
 plt.imshow(np.transpose(img_grid, (1, 2, 0)))
 plt.axis('off')
-
+plt.savefig('./figures/Figure_3.pdf', bbox_inches='tight')
 
 
 

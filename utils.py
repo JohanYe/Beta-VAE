@@ -59,11 +59,18 @@ def load_checkpoint(checkpoint, model, cpu=False):
 
 
 class CustomTensorDataset(torch.utils.data.Dataset):
-    def __init__(self, data_tensor):
+    def __init__(self, data_tensor, labels=None):
         self.data_tensor = data_tensor
+        if labels is not None:
+            self.labels = labels
+        else:
+            self.labels = None
 
     def __getitem__(self, index):
-        return self.data_tensor[index]
+        if self.labels is None:
+            return self.data_tensor[index]
+        else:
+            return self.data_tensor[index], self.labels[index]
 
     def __len__(self):
         return self.data_tensor.size(0)
@@ -89,8 +96,9 @@ def dataloaders(batch_size, MNIST=True):
         data = np.load(root, encoding='bytes')
         data = torch.from_numpy(data['imgs']).unsqueeze(1).float()
         # train_set, val_set = data[:int(data.size(0)*0.8)], data[int(data.size(0)*0.8):]
+        torch.manual_seed(0)
         rand_perm = torch.randperm(data.size(0))
-        train_set, val_set = data[rand_perm[:50000]], data[rand_perm[50000:60000]]
+        train_set, val_set = data[rand_perm[:150000]], data[rand_perm[150000:165000]]
         train_kwargs = {'data_tensor': train_set}
         val_kwargs = {'data_tensor': val_set}
         dset = CustomTensorDataset
@@ -105,6 +113,48 @@ def dataloaders(batch_size, MNIST=True):
 
         return train_loader, val_loader
 
+def get_mu_and_latents(net, batch_size=64, seed=0):
+    #self explanatory
+    root = './data/dsprites-dataset/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz'
+    data = np.load(root, encoding='bytes')
+    torch.manual_seed(seed)
+    rand_perm = torch.randperm(data['imgs'].shape[0])
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Slicing
+    imgs_train = torch.from_numpy(data['imgs'][rand_perm[:150000]]).unsqueeze(1).float()
+    imgs_val = torch.from_numpy(data['imgs'][rand_perm[150000:165000]]).unsqueeze(1).float()
+    latent_train = torch.from_numpy(data['latents_values'][rand_perm[:150000]])
+    latent_val = torch.from_numpy(data['latents_values'][rand_perm[150000:165000]])
+
+    # getting mu_trains manual batching and saving
+    mu_train = torch.zeros(imgs_train.shape[0], net.latent)
+    iterations_train = int(np.ceil(imgs_train.shape[0] / batch_size))
+    for i in range(iterations_train):
+        if i == (iterations_train - 1):
+            batch = imgs_train[i * batch_size:]
+            mu = net.get_latent(batch.to(device))
+            mu_train[i * batch_size:] = mu.cpu().detach()
+        else:
+            batch = imgs_train[i * batch_size:(i + 1) * batch_size]
+            mu = net.get_latent(batch.to(device))
+            mu_train[i * batch_size:(i + 1) * batch_size] = mu.cpu().detach()
+
+    # getting mu_vals manual batching and saving
+    mu_val = torch.zeros(imgs_val.shape[0], net.latent)
+    iterations_val = int(np.ceil(imgs_val.shape[0] / batch_size))
+    for i in range(iterations_val):
+        if i == (iterations_val - 1):
+            batch = imgs_val[i * batch_size:]
+            mu = net.get_latent(batch.to(device))
+            mu_val[i * batch_size:] = mu.cpu().detach()
+        else:
+            batch = imgs_val[i * batch_size:(i + 1) * batch_size]
+            mu = net.get_latent(batch.to(device))
+            mu_val[i * batch_size:(i + 1) * batch_size] = mu.cpu().detach()
+
+    return mu_train, latent_train, mu_val, latent_val
+
 
 def traversal_plotting(x, out_loc, num_traversals=10, original_index=0, silent=False):
     """ expects original to be first index """
@@ -113,7 +163,7 @@ def traversal_plotting(x, out_loc, num_traversals=10, original_index=0, silent=F
     ax0 = plt.subplot(gs[0])
 
     original = x[original_index].reshape(64, 64).cpu()
-    img = torch.stack(x[1:], dim=0).cpu().view(6 * num_traversals, 1, 64, 64)
+    img = torch.stack(x[1:], dim=0).cpu().view(10 * num_traversals, 1, 64, 64)
     img_grid = torchvision.utils.make_grid(img, nrow=num_traversals)
     ax0.imshow(original)
     ax0.axis('off')
@@ -131,3 +181,5 @@ def save_animation(images, filename, num_traversal, fps):
     gif = np.array(images.cpu().detach())
     gif = (gif*255).reshape(num_traversal, 64, 64).astype(np.uint8)
     imageio.mimwrite(filename, gif, fps=fps)
+
+
