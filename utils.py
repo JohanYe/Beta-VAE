@@ -182,4 +182,20 @@ def save_animation(images, filename, num_traversal, fps):
     gif = (gif*255).reshape(num_traversal, 64, 64).astype(np.uint8)
     imageio.mimwrite(filename, gif, fps=fps)
 
+def plot_tiles_dsprites(latent_i):
+    title = 'Mu Influence on '
+    if latent_i == 0:
+        title += 'Color'
+    elif latent_i == 1:
+        title += 'Shape'
+    elif latent_i == 2:
+        title += 'Scale'
+    elif latent_i == 3:
+        title += 'Orientation'
+    elif latent_i == 4:
+        title += 'X-axis Position'
+    elif latent_i == 5:
+        title += 'Y-axis Position'
+    return title
+
 

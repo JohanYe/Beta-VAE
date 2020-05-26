@@ -179,10 +179,10 @@ class BetaVAE_conv(nn.Module):
 
         return (-nll + kl * beta).contiguous(), kl, nll
 
-    def LT_fitted_gauss_2std(self, x, num_var=6, num_traversal=5, gif_fps=5):
+    def LT_fitted_gauss_2std(self, x, num_var=6, num_traversal=5, gif_fps=5, silent=False):
         # Cycle linearly through +-2 std dev of a fitted Gaussian.
         mu, lv = self.BottomUp(x)
-
+        num_traversal += 1 if num_traversal % 2 == 0 else num_traversal
 
         for i, batch_mu in enumerate(mu[:num_var]):
             images = []
@@ -192,15 +192,21 @@ class BetaVAE_conv(nn.Module):
                 loc = mu[:, latent_var].mean()
                 total_var = lv[:, latent_var].exp().mean() + mu[:, latent_var].var()
                 scale = total_var.sqrt()
+
+                # gif
                 new_mu[:, latent_var] = cycle_interval(batch_mu[latent_var], num_traversal,
                                                        loc - 2 * scale, loc + 2 * scale)
-
-                images.append(torch.sigmoid(self.TopDown(new_mu)))
                 filename = os.path.join(os.getcwd(), "figures/mu_gifs/mu%d_var%d.gif" % (i+1,latent_var+1))
                 save_animation(torch.sigmoid(self.TopDown(new_mu)), filename, num_traversal, fps=gif_fps)  #gif
 
+                # Plot
+                new_mu[:, latent_var] = torch.linspace((loc - 2 * scale).item(),
+                                                       (loc + 2 * scale).item(),
+                                                       steps = num_traversal)
+                images.append(torch.sigmoid(self.TopDown(new_mu)))
+
             img_name = os.path.join(os.getcwd(), "figures/traversals/Traversal%d.pdf" % (i+1))
-            traversal_plotting(images, img_name, num_traversals=num_traversal)  # Traversal image
+            traversal_plotting(images, img_name, num_traversals=num_traversal, silent=silent)  # Traversal image
         return images
 
     def get_latent(self, x):

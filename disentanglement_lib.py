@@ -88,14 +88,14 @@ def compute_dci(mus_train, latents_train, mus_test, latents_test, load=False):
 
     if load:
         importance_matrix = np.load('./checkpoints/importance_matrix.npy')
-        train_err = 0.624 #np.load('./checkpoints/train_err.npy')
-        test_err = 0.595 #np.load('./checkpoints/test_err.npy')
+        train_err = np.load('./checkpoints/train_err.npy')
+        test_err = np.load('./checkpoints/test_err.npy')
     else:  # Since this shit takes a long time
         importance_matrix, train_err, test_err = compute_importance_gbt(
             mus_train, latents_train, mus_test, latents_test)
-        np.save('./checkpoints/importance_matrix.txt', importance_matrix)
-        np.save('./checkpoints/train_err.txt', train_err)
-        np.save('./checkpoints/test_err.txt', test_err)
+        np.save('./checkpoints/importance_matrix', importance_matrix)
+        np.save('./checkpoints/train_err', train_err)
+        np.save('./checkpoints/test_err', test_err)
 
     assert importance_matrix.shape[0] == mus_train.shape[1]
     assert importance_matrix.shape[1] == latents_train.shape[1]
