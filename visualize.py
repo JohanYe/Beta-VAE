@@ -61,7 +61,7 @@ mu_train, latent_train, mu_val, latent_val = utils.get_mu_and_latents(net, batch
 latent_train, latent_val = rescale_dsprites_latents(latent_train, latent_val)
 
 # calculate importance matrix of GBT, may take a long time
-scores, importance_matrix = compute_dci(mu_train, latent_train, mu_val, latent_val, load=True)
+scores, importance_matrix = compute_dci(mu_train, latent_train, mu_val, latent_val, load=False)
 
 cmap = sns.cubehelix_palette(as_cmap=True)
 num_plot = 1000
