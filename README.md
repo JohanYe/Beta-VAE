@@ -1,6 +1,5 @@
 # Beta-VAE 
-Original paper: https://openreview.net/pdf?id=Sy2fzU9gl
-
+Original paper: https://openreview.net/pdf?id=Sy2fzU9gl <br>
 Implementation includes improvements from: https://arxiv.org/abs/1804.03599
 
 <b>Note:</b> Models were trained on random subset of 150,000 images from the dsprites data set due to lack of compute power close to NeurIPS deadline 2020.
@@ -10,17 +9,16 @@ Performance was evaluated on DCI metric
 ### DCI Metric performance
 ![DCI](figures/Figure_4_flat.png)
 
-<b>Color:</b> Since we are using black-white no latent variable is responsible
-<b>Shape:</b> μ_10
-<b>Scale:</b> Unclear, looks to be combination of μ_4, μ_6, μ_8  
-<b>Orientation:</b> μ_10
-<b>X-axis Position:</b> μ_8
-<b>Y-axis Position:</b>  μ6
+
+<p> <b>Color:</b> Since we are using black-white no latent variable is responsible<br>
+<b>Shape:</b> μ_10 <br>
+<b>Scale:</b> Unclear, looks to be combination of μ_4, μ_6, μ_8  <br>
+<b>Orientation:</b> μ_10 <br>
+<b>X-axis Position:</b> μ_8 <br>
+<b>Y-axis Position:</b>  μ6 </p>
+
 
 It appears the latent space has not learned that the shape and orientiation as a continuous space. Likely due to the small subset of samples shown. I expect performance to increase as training data set in increased. 
-
-### Loss curves:
-![Loss](figures/Figure_2.png)
 
 ### Reconstructions:
 ![Recons](figures/Figure_3.png)
@@ -91,4 +89,5 @@ It appears the latent space has not learned that the shape and orientiation as a
 ![Trav2](figures/Traversal2.png)
 
 
-
+### Loss curves:
+![Loss](figures/Figure_2.png)
