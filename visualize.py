@@ -52,7 +52,7 @@ num_traversal = 10
 with torch.no_grad():
     net.eval()
     # images = net.module.LT_fitted_gauss_2std(quick_plot.to(device), num_var=10, num_traversal=num_traversal)
-    images = net.LT_fitted_gauss_2std(quick_plot.to(device), num_var=10, num_traversal=num_traversal,silent=True)
+    images = net.LT_fitted_gauss_2std(quick_plot.to(device), num_var=10, num_traversal=num_traversal, silent=True)
 
 # Getting my and latents_values
 mu_train, latent_train, mu_val, latent_val = utils.get_mu_and_latents(net, batch_size=batch_size, seed=0)
@@ -61,7 +61,7 @@ mu_train, latent_train, mu_val, latent_val = utils.get_mu_and_latents(net, batch
 latent_train, latent_val = rescale_dsprites_latents(latent_train, latent_val)
 
 # calculate importance matrix of GBT, may take a long time
-scores, importance_matrix = compute_dci(mu_train, latent_train, mu_val, latent_val, load=False)
+scores, importance_matrix = compute_dci(mu_train, latent_train, mu_val, latent_val, load=True)
 
 cmap = sns.cubehelix_palette(as_cmap=True)
 num_plot = 1000
@@ -70,8 +70,8 @@ for i in range(latent_train.shape[1]):
     fig, ax = plt.subplots()
 
     # Plot prep
-    plot_x = np.expand_dims(np.arange(1, 11),axis=0).repeat(num_plot,axis=0)
-    offset = np.random.uniform(-0.3,0.3, size=(num_plot, 10))
+    plot_x = np.expand_dims(np.arange(1, 11), axis=0).repeat(num_plot, axis=0)
+    offset = np.random.uniform(-0.3, 0.3, size=(num_plot, 10))
     plot_x = plot_x + offset
     c_plot = np.expand_dims(c[:num_plot, i], axis=1).repeat(mu_train.shape[1], axis=1)
     g = ax.scatter(plot_x, mu_train[:num_plot, :], c=c_plot, s=10)
@@ -82,4 +82,3 @@ for i in range(latent_train.shape[1]):
     plt.colorbar(g)
     filename = './figures/DCI/latent_importance_' + str(i) + '.pdf'
     plt.savefig(filename, bbox_inches='tight')
-

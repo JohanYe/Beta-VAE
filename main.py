@@ -50,7 +50,7 @@ for epoch in range(n_epochs):
         batch = batch.to(device)
         loss, kl, nll = net.calc_loss(batch, beta=beta)
         C = torch.clamp(C_max/C_stop_iter*global_iter, 0, C_max.item())
-        loss = -nll + gamma*(kl-C).abs()
+        loss = -nll + gamma*(kl-C).abs()  # COMMENT OUT TO USE ORIGINAL BETA-VAE IMPLEMENTATION
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
