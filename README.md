@@ -5,6 +5,7 @@ Implementation includes improvements from: https://arxiv.org/abs/1804.03599
 <b>Note:</b> Models were trained on random subset of 150,000 images from the dsprites data set due to lack of compute power close to NeurIPS deadline 2020.
 
 Performance was evaluated on DCI metric
+Black and white dsprites data was used.
 
 ### DCI Metric performance
 ![DCI](figures/Figure_4_flat.png)
